@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Todo
+Comment=Todo rapide (~/todo.md)
+Exec=python3 @INSTALL_DIR@/todo_widget.py
+Icon=local.TodoWidget
+Terminal=false
+Categories=Utility;
+StartupWMClass=local.TodoWidget
