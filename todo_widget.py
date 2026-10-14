@@ -15,7 +15,7 @@ LINE = re.compile(r"^- \[( |x)\] (.*)$")
 CSS = b"""
 .task-row { padding: 10px 14px; }
 .task-row check { min-width: 20px; min-height: 20px; }
-.task-row.done label { text-decoration: line-through; opacity: 0.5; }
+.task-row.done .task-text { text-decoration: line-through; opacity: 0.5; }
 .add-bar { padding: 12px; }
 .badge { border-radius: 999px; padding: 2px 10px; min-height: 0; font-size: 0.8em; font-weight: bold; margin-right: 10px; }
 .badge.urgent { background: #e01b24; color: white; }
@@ -93,13 +93,21 @@ class TodoWindow(Adw.ApplicationWindow):
             urgent = text.endswith(URGENT)
             if urgent:
                 text = text[: -len(URGENT)]
-            check = Gtk.CheckButton(active=done, hexpand=True)
-            label = Gtk.Label(label=text, wrap=True, xalign=0, hexpand=True)
-            check.set_child(label)
-            check.add_css_class("task-row")
-            if done:
-                check.add_css_class("done")
+            check = Gtk.CheckButton(active=done, valign=Gtk.Align.CENTER)
             check.connect("toggled", self.on_toggle, i)
+            label = Gtk.Label(label=text, wrap=True, xalign=0, hexpand=True)
+            label.add_css_class("task-text")
+            entry = Gtk.Entry(text=text, hexpand=True, valign=Gtk.Align.CENTER)
+            edit = Gtk.Stack(hexpand=True)
+            edit.add_child(label)
+            edit.add_child(entry)
+            click = Gtk.GestureClick()
+            click.connect("released", self.on_start_edit, edit, entry)
+            label.add_controller(click)
+            entry.connect("activate", self.on_edit, edit, i)
+            focus = Gtk.EventControllerFocus()
+            focus.connect("leave", lambda _c, e=entry, s=edit, idx=i: self.on_edit(e, s, idx))
+            entry.add_controller(focus)
             badge = Gtk.Button(label="Urgent" if urgent else "Pas urgent", valign=Gtk.Align.CENTER)
             badge.add_css_class("badge")
             badge.add_css_class("urgent" if urgent else "not-urgent")
@@ -109,8 +117,12 @@ class TodoWindow(Adw.ApplicationWindow):
             delete.add_css_class("circular")
             delete.add_css_class("delete")
             delete.connect("clicked", self.on_delete, i)
-            row = Gtk.Box()
+            row = Gtk.Box(spacing=12)
+            row.add_css_class("task-row")
+            if done:
+                row.add_css_class("done")
             row.append(check)
+            row.append(edit)
             row.append(badge)
             row.append(delete)
             self.listbox.append(row)
@@ -135,6 +147,24 @@ class TodoWindow(Adw.ApplicationWindow):
         line = lines[index]
         lines[index] = line[: -len(URGENT)] if line.endswith(URGENT) else line + URGENT
         write_lines(lines)
+
+    def on_start_edit(self, _gesture, _n, _x, _y, edit, entry):
+        edit.set_visible_child(entry)
+        entry.grab_focus()
+
+    def on_edit(self, entry, edit, index):
+        if edit.get_visible_child() is not entry:
+            return
+        edit.set_visible_child(edit.get_first_child())
+        text = entry.get_text().strip()
+        lines = read_lines()
+        if not text or index >= len(lines) or not (m := LINE.match(lines[index])):
+            return
+        suffix = URGENT if m.group(2).endswith(URGENT) else ""
+        new = f"- [{m.group(1)}] {text}{suffix}"
+        if new != lines[index]:
+            lines[index] = new
+            write_lines(lines)
 
     def on_delete(self, _button, index):
         lines = read_lines()
