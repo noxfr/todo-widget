@@ -20,6 +20,8 @@ CSS = b"""
 .badge { border-radius: 999px; padding: 2px 10px; min-height: 0; font-size: 0.8em; font-weight: bold; margin-right: 10px; }
 .badge.urgent { background: #e01b24; color: white; }
 .badge.not-urgent { background: alpha(currentColor, 0.1); opacity: 0.6; }
+.delete { margin-right: 8px; opacity: 0.5; }
+.delete:hover { opacity: 1; color: #e01b24; }
 """
 URGENT = " #urgent"
 
@@ -103,9 +105,15 @@ class TodoWindow(Adw.ApplicationWindow):
             badge.add_css_class("badge")
             badge.add_css_class("urgent" if urgent else "not-urgent")
             badge.connect("clicked", self.on_urgent, i)
+            delete = Gtk.Button(icon_name="window-close-symbolic", valign=Gtk.Align.CENTER, tooltip_text="Supprimer")
+            delete.add_css_class("flat")
+            delete.add_css_class("circular")
+            delete.add_css_class("delete")
+            delete.connect("clicked", self.on_delete, i)
             row = Gtk.Box()
             row.append(check)
             row.append(badge)
+            row.append(delete)
             self.listbox.append(row)
         total = sum(1 for l in read_lines() if LINE.match(l))
         self.stack.set_visible_child_name("list" if total else "empty")
@@ -127,6 +135,13 @@ class TodoWindow(Adw.ApplicationWindow):
             return
         line = lines[index]
         lines[index] = line[: -len(URGENT)] if line.endswith(URGENT) else line + URGENT
+        write_lines(lines)
+
+    def on_delete(self, _button, index):
+        lines = read_lines()
+        if index >= len(lines) or not LINE.match(lines[index]):
+            return
+        del lines[index]
         write_lines(lines)
 
     def on_add(self, entry):
