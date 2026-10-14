@@ -84,10 +84,9 @@ class TodoWindow(Adw.ApplicationWindow):
         while (row := self.listbox.get_first_child()) is not None:
             self.listbox.remove(row)
         pending = 0
-        for i, line in enumerate(read_lines()):
-            m = LINE.match(line)
-            if not m:
-                continue
+        tasks = [(i, m) for i, line in enumerate(read_lines()) if (m := LINE.match(line))]
+        tasks.sort(key=lambda t: not t[1].group(2).endswith(URGENT))
+        for i, m in tasks:
             done = m.group(1) == "x"
             pending += not done
             text = m.group(2)
